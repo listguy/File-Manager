@@ -1,6 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var interfaces_1 = require("./interfaces");
+var prompt_sync_1 = __importDefault(require("prompt-sync"));
+var prompt = prompt_sync_1.default();
 var File = /** @class */ (function () {
     function File(title, path, father) {
         this.title = title;
@@ -33,6 +38,9 @@ var File = /** @class */ (function () {
     File.prototype.delete = function () {
         this.father.content[this.title] = undefined;
     };
+    File.prototype.goUp = function () {
+        return this.father;
+    };
     return File;
 }());
 exports.File = File;
@@ -55,6 +63,9 @@ var Folder = /** @class */ (function () {
         }
         this.delete();
         return this;
+    };
+    Folder.prototype.printOptions = function () {
+        console.log(Object.keys(this.content).join("  "));
     };
     Folder.prototype.updatePath = function (newPath) {
         var _this = this;
@@ -81,10 +92,6 @@ var Folder = /** @class */ (function () {
         var endOfStep = path.indexOf("/");
         var step = endOfStep === -1 ? path : path.slice(0, endOfStep);
         var next = this.content[step];
-        console.log("next");
-        console.log(next);
-        console.log(endOfStep);
-        console.log("next!!!");
         if (!next)
             throw "can't resolve path. one of the folders doesn't exist";
         if (endOfStep === -1)
@@ -96,6 +103,9 @@ var Folder = /** @class */ (function () {
     Folder.prototype.delete = function () {
         this.father.content[this.title] = undefined;
     };
+    Folder.prototype.goUp = function () {
+        return this.father;
+    };
     return Folder;
 }());
 exports.Folder = Folder;
@@ -103,33 +113,40 @@ var FilesManager = /** @class */ (function () {
     function FilesManager() {
         this.root = new Folder("/", "/");
     }
-    FilesManager.prototype.do = function (command) {
-        var parsedCMD = parseCommand(command);
-        if (!parsedCMD)
-            return;
-        switch (parsedCMD.cmd) {
-            case "mv":
-                this.mv(parsedCMD.src, parsedCMD.dst);
-                break;
-            case "cp":
-                this.cp(parsedCMD.src, parsedCMD.dst);
-                break;
-            case "mkdir":
-                this.mkdir(parsedCMD.src);
-                break;
-            case "touch":
-                this.touch(parsedCMD.src);
-                break;
-            case "rm":
-                this.rm(parsedCMD.src);
-                break;
+    FilesManager.prototype.do = function (command, prefix) {
+        try {
+            var parsedCMD = parseCommand(command);
+            if (!parsedCMD)
+                return;
+            switch (parsedCMD.cmd) {
+                case "mv":
+                    this.mv(parsedCMD.src, parsedCMD.dst);
+                    break;
+                case "cp":
+                    this.cp(parsedCMD.src, parsedCMD.dst);
+                    break;
+                case "mkdir":
+                    this.mkdir(parsedCMD.src);
+                    break;
+                case "touch":
+                    this.touch(parsedCMD.src);
+                    break;
+                case "rm":
+                    this.rm(parsedCMD.src);
+                    break;
+            }
+        }
+        catch (err) {
+            console.log(err);
         }
     };
-    FilesManager.prototype.print = function () {
-        console.log(this.root.content);
-    };
     FilesManager.prototype.get = function (path) {
-        return this.root.get(path);
+        try {
+            return this.root.get(path);
+        }
+        catch (err) {
+            console.log(err);
+        }
     };
     FilesManager.prototype.cp = function (src, dst) {
         if (!dst) {
@@ -148,7 +165,7 @@ var FilesManager = /** @class */ (function () {
             destination.paste([source.copy()]);
         }
         catch (err) {
-            console.log(err.message);
+            console.log(err);
         }
     };
     FilesManager.prototype.mv = function (src, dst) {
@@ -166,22 +183,23 @@ var FilesManager = /** @class */ (function () {
             destination.paste([source.cut()]);
         }
         catch (err) {
-            console.log(err.message);
+            console.log(err);
         }
     };
     FilesManager.prototype.touch = function (src) {
         try {
             var father = this.root.get(src);
-            console.log(father);
+            // console.log(father);
             if (!(father instanceof Folder)) {
                 throw "can't create new file here";
             }
-            var newFile = new File("newfile", src + "/newfile", father);
+            var fileName = prompt("title: ");
+            var newFile = new File(fileName, src + "/" + fileName, father);
             father.paste([newFile]);
             console.log("new file create successfuly!");
         }
         catch (err) {
-            console.log(err.message);
+            console.log(err);
         }
     };
     FilesManager.prototype.mkdir = function (src) {
@@ -190,22 +208,29 @@ var FilesManager = /** @class */ (function () {
             if (!(father instanceof Folder)) {
                 throw "can't create new folder here";
             }
-            var newFile = new Folder("newfolder", src + "/newfile", father);
-            father.paste([newFile]);
+            var folderName = prompt("title: ");
+            var newFolder = new Folder(folderName, src + "/" + folderName, father);
+            father.paste([newFolder]);
             console.log("new folder create successfuly!");
         }
         catch (err) {
-            console.log(err.message);
+            console.log(err);
         }
     };
     FilesManager.prototype.rm = function (src) {
         var removedThing = this.root.get(src);
+        if (removedThing instanceof Folder) {
+            var answer = prompt("Deleting " + removedThing.title + " will delete all of it's content\nAre you sure? [y/N]");
+            if (answer !== "y")
+                return;
+        }
         removedThing === null || removedThing === void 0 ? void 0 : removedThing.delete();
     };
     return FilesManager;
 }());
 exports.FilesManager = FilesManager;
-function parseCommand(command) {
+function parseCommand(command, prefix) {
+    if (prefix === void 0) { prefix = ""; }
     var _a;
     if (typeof command != "string") {
         throw "expected string but got " + typeof command;
@@ -224,7 +249,8 @@ function parseCommand(command) {
     if (pathes === null) {
         throw "src path is ilegal.";
     }
-    var src = pathes[0].slice(1);
+    var src = prefix + pathes[0].slice(1);
+    console.log(src);
     var dst = (_a = pathes[1]) === null || _a === void 0 ? void 0 : _a.slice(1);
     return { cmd: cmd, src: src, dst: dst }; //TODO fix this arab thingy
 }

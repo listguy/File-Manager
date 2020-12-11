@@ -7,6 +7,9 @@ import {
   legalcmdEnum,
 } from "./interfaces";
 
+import promptmodule from "prompt-sync";
+
+const prompt = promptmodule();
 export class File implements IFile {
   title: string;
   path: string;
@@ -50,6 +53,10 @@ export class File implements IFile {
   delete() {
     this.father!.content[this.title] = undefined;
   }
+
+  goUp() {
+    return this.father;
+  }
 }
 
 export class Folder implements IFolder {
@@ -83,6 +90,10 @@ export class Folder implements IFolder {
     return this;
   }
 
+  printOptions() {
+    console.log(Object.keys(this.content).join("  "));
+  }
+
   updatePath(newPath: string) {
     if (this.father?.path === "/") {
       this.path = this.title;
@@ -110,10 +121,6 @@ export class Folder implements IFolder {
     const step: string = endOfStep === -1 ? path : path.slice(0, endOfStep);
     const next: File | Folder = this.content[step];
 
-    console.log("next");
-    console.log(next);
-    console.log(endOfStep);
-    console.log("next!!!");
     if (!next) throw "can't resolve path. one of the folders doesn't exist";
     if (endOfStep === -1) return next;
     if (next instanceof File) throw "can't resolve path. can't cd into file";
@@ -122,6 +129,10 @@ export class Folder implements IFolder {
 
   delete() {
     this.father!.content[this.title] = undefined;
+  }
+
+  goUp() {
+    return this.father;
   }
 }
 
@@ -132,35 +143,38 @@ export class FilesManager implements IFilesManager {
     this.root = new Folder("/", "/");
   }
 
-  do(command: string) {
-    const parsedCMD = parseCommand(command);
-    if (!parsedCMD) return;
-
-    switch (parsedCMD.cmd) {
-      case "mv":
-        this.mv(parsedCMD.src, parsedCMD.dst);
-        break;
-      case "cp":
-        this.cp(parsedCMD.src, parsedCMD.dst);
-        break;
-      case "mkdir":
-        this.mkdir(parsedCMD.src);
-        break;
-      case "touch":
-        this.touch(parsedCMD.src);
-        break;
-      case "rm":
-        this.rm(parsedCMD.src);
-        break;
+  do(command: string, prefix?: string) {
+    try {
+      const parsedCMD = parseCommand(command);
+      if (!parsedCMD) return;
+      switch (parsedCMD.cmd) {
+        case "mv":
+          this.mv(parsedCMD.src, parsedCMD.dst);
+          break;
+        case "cp":
+          this.cp(parsedCMD.src, parsedCMD.dst);
+          break;
+        case "mkdir":
+          this.mkdir(parsedCMD.src);
+          break;
+        case "touch":
+          this.touch(parsedCMD.src);
+          break;
+        case "rm":
+          this.rm(parsedCMD.src);
+          break;
+      }
+    } catch (err) {
+      console.log(err);
     }
   }
 
-  print() {
-    console.log(this.root.content);
-  }
-
   get(path: string) {
-    return this.root.get(path);
+    try {
+      return this.root.get(path);
+    } catch (err) {
+      console.log(err);
+    }
   }
 
   private cp(src: string, dst: string | undefined) {
@@ -180,7 +194,7 @@ export class FilesManager implements IFilesManager {
 
       destination.paste([source.copy()]);
     } catch (err) {
-      console.log(err.message);
+      console.log(err);
     }
   }
 
@@ -199,23 +213,24 @@ export class FilesManager implements IFilesManager {
 
       destination.paste([source.cut()]);
     } catch (err) {
-      console.log(err.message);
+      console.log(err);
     }
   }
 
   private touch(src: string) {
     try {
       const father: Folder | File | undefined = this.root.get(src);
-      console.log(father);
+      // console.log(father);
       if (!(father instanceof Folder)) {
         throw "can't create new file here";
       }
 
-      const newFile = new File("newfile", `${src}/newfile`, father);
+      const fileName = prompt("title: ");
+      const newFile = new File(fileName, `${src}/${fileName}`, father);
       father.paste([newFile]);
       console.log("new file create successfuly!");
     } catch (err) {
-      console.log(err.message);
+      console.log(err);
     }
   }
 
@@ -227,21 +242,31 @@ export class FilesManager implements IFilesManager {
         throw "can't create new folder here";
       }
 
-      const newFile = new Folder("newfolder", `${src}/newfile`, father);
-      father.paste([newFile]);
+      const folderName = prompt("title: ");
+      const newFolder = new Folder(folderName, `${src}/${folderName}`, father);
+      father.paste([newFolder]);
       console.log("new folder create successfuly!");
     } catch (err) {
-      console.log(err.message);
+      console.log(err);
     }
   }
 
   private rm(src: string) {
     const removedThing: File | Folder | undefined = this.root.get(src);
+    if (removedThing instanceof Folder) {
+      const answer = prompt(
+        `Deleting ${removedThing.title} will delete all of it's content\nAre you sure? [y/N]`
+      );
+      if (answer !== "y") return;
+    }
     removedThing?.delete();
   }
 }
 
-function parseCommand(command: string): ParsedCommand | void {
+function parseCommand(
+  command: string,
+  prefix: string = ""
+): ParsedCommand | void {
   if (typeof command != "string") {
     throw `expected string but got ${typeof command}`;
   }
@@ -263,7 +288,8 @@ function parseCommand(command: string): ParsedCommand | void {
     throw "src path is ilegal.";
   }
 
-  const src: string = pathes[0].slice(1);
+  const src: string = prefix + pathes[0].slice(1);
+  console.log(src);
   const dst: string = pathes[1]?.slice(1);
 
   return { cmd: (cmd as unknown) as legalcmd, src, dst }; //TODO fix this arab thingy
