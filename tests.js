@@ -37,7 +37,8 @@ var currentFolder = fm.root;
 // fm.do("touch ");
 // fm.do("mkdir ");
 // fm.do("touch folder");
-console.log("Welcome to file manager. to Exit enter x");
+console.log("Welcome to file manager.");
+console.log("you can enter the following commands:\ncd- enter a path to go down into.\ncd..- go up one step\nls- show folder's content.\ncp, mv, touch, mkdir & rm like bash");
 while (!exit) {
     var prefix = currentFolder.path;
     var input = prompt(prefix + " $");
@@ -71,6 +72,7 @@ while (!exit) {
                 break;
             }
             currentFolder = currentFolder.goUp();
+            prefix = currentFolder.path;
         default:
             if (prefix === "/") {
                 fm.do(input);

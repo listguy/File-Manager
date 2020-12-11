@@ -245,7 +245,7 @@ function parseCommand(command, prefix) {
     if (!cmd) {
         throw "command ilegal";
     }
-    var pathes = command.match(/\s[a-z\/]*/g);
+    var pathes = command.match(/\s[a-z\/1-9]*/g);
     if (pathes === null) {
         throw "src path is ilegal.";
     }

@@ -283,7 +283,7 @@ function parseCommand(
     throw "command ilegal";
   }
 
-  const pathes: string[] | null = command.match(/\s[a-z\/]*/g);
+  const pathes: string[] | null = command.match(/\s[a-z\/1-9]*/g);
   if (pathes === null) {
     throw "src path is ilegal.";
   }
